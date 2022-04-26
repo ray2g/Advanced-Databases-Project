@@ -1,0 +1,424 @@
+
+--- Optimization and Tunning - SQL DB
+
+
+/* __________________________________________________________________________________________________________________________
+
+     Query 1 - Update to 1980/01/01 the release date of all albums for the genre Math rock, which were released in the 90’s
+     with an abstract over 200 characters, and that had most sales.   
+
+_____________________________________________________________________________________________________________________________
+*/
+
+
+SELECT albums.band_id, albums.release_date, albums.sales, genres.genre_name, albums.abstract
+FROM (((albums 
+INNER JOIN bands ON albums.band_id = bands.band_id)
+INNER JOIN bands_genre ON bands.band_id = bands_genre.band_id)
+INNER JOIN genres ON bands_genre.genre_id = genres.genre_id)
+        WHERE genres.genre_name = 'Math rock'
+        AND albums.release_date >= '1990/01/01'
+        AND albums.release_date <= '1999/12/31'
+        AND LENGTH(albums.abstract) > 200
+        GROUP BY albums.band_id, albums.release_date, albums.abstract, albums.sales, genres.genre_name
+        ORDER BY albums.sales
+        DESC
+        LIMIT 1;
+
+
+--- Query Plan without indexes
+
+EXPLAIN ANALYZE SELECT albums.band_id, albums.release_date, albums.sales, genres.genre_name, albums.abstract
+FROM (((albums 
+INNER JOIN bands ON albums.band_id = bands.band_id)
+INNER JOIN bands_genre ON bands.band_id = bands_genre.band_id)
+INNER JOIN genres ON bands_genre.genre_id = genres.genre_id)
+        WHERE genres.genre_name = 'Math rock'
+        AND albums.release_date >= '1990/01/01'
+        AND albums.release_date <= '1999/12/31'
+        AND LENGTH(albums.abstract) > 200
+        GROUP BY albums.band_id, albums.release_date, albums.abstract, albums.sales, genres.genre_name
+        ORDER BY albums.sales
+        DESC
+        LIMIT 1;
+
+
+
+/*
+
+                                                                        QUERY PLAN
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3563.78..3563.80 rows=1 width=504) (actual time=148.644..148.673 rows=1 loops=1)
+   ->  Group  (cost=3563.78..3563.93 rows=10 width=504) (actual time=148.638..148.664 rows=1 loops=1)
+         Group Key: albums.sales, albums.band_id, albums.release_date, albums.abstract, genres.genre_name
+         ->  Sort  (cost=3563.78..3563.81 rows=10 width=504) (actual time=148.631..148.655 rows=1 loops=1)
+               Sort Key: albums.sales DESC, albums.band_id, albums.release_date, albums.abstract
+               Sort Method: quicksort  Memory: 35kB
+               ->  Nested Loop  (cost=415.34..3563.62 rows=10 width=504) (actual time=83.918..148.549 rows=14 loops=1)
+                     Join Filter: (albums.band_id = bands.band_id)
+                     ->  Hash Join  (cost=415.06..3560.10 rows=11 width=508) (actual time=83.871..148.236 rows=14 loops=1)
+                           Hash Cond: (albums.band_id = bands_genre.band_id)
+                           ->  Seq Scan on albums  (cost=0.00..3136.76 rows=2179 width=492) (actual time=8.642..81.148 rows=4841 loops=1)
+                                 Filter: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date) AND (length(abstract) > 200))
+                                 Rows Removed by Filter: 29247
+                           ->  Hash  (cost=414.51..414.51 rows=44 width=16) (actual time=61.220..61.232 rows=62 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                 ->  Hash Join  (cost=10.66..414.51 rows=44 width=16) (actual time=0.270..61.105 rows=62 loops=1)
+                                       Hash Cond: (bands_genre.genre_id = genres.genre_id)
+                                       ->  Seq Scan on bands_genre  (cost=0.00..341.32 rows=23632 width=8) (actual time=0.060..33.324 rows=23632 loops=1)
+                                       ->  Hash  (cost=10.65..10.65 rows=1 width=16) (actual time=0.142..0.146 rows=1 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                             ->  Seq Scan on genres  (cost=0.00..10.65 rows=1 width=16) (actual time=0.021..0.111 rows=1 loops=1)
+                                                   Filter: ((genre_name)::text = 'Math rock'::text)
+                                                   Rows Removed by Filter: 531
+                     ->  Index Only Scan using bands_pkey on bands  (cost=0.29..0.31 rows=1 width=4) (actual time=0.017..0.017 rows=1 loops=14)
+                           Index Cond: (band_id = bands_genre.band_id)
+                           Heap Fetches: 0
+ Planning Time: 86.578 ms
+ Execution Time: 148.778 ms
+(28 rows)
+*/
+
+
+--- Create Index date_abstract
+
+CREATE INDEX date_abstract ON albums USING btree (release_date, length(abstract));
+
+/*
+                                                                           QUERY PLAN
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3112.42..3112.43 rows=1 width=504) (actual time=83.892..83.926 rows=1 loops=1)
+   ->  Group  (cost=3112.42..3112.57 rows=10 width=504) (actual time=83.885..83.916 rows=1 loops=1)
+         Group Key: albums.sales, albums.band_id, albums.release_date, albums.abstract, genres.genre_name
+         ->  Sort  (cost=3112.42..3112.44 rows=10 width=504) (actual time=83.879..83.908 rows=1 loops=1)
+               Sort Key: albums.sales DESC, albums.band_id, albums.release_date, albums.abstract
+               Sort Method: quicksort  Memory: 35kB
+               ->  Nested Loop  (cost=569.88..3112.25 rows=10 width=504) (actual time=63.279..83.706 rows=14 loops=1)
+                     Join Filter: (albums.band_id = bands.band_id)
+                     ->  Hash Join  (cost=569.59..3108.73 rows=11 width=508) (actual time=63.207..83.384 rows=14 loops=1)
+                           Hash Cond: (albums.band_id = bands_genre.band_id)
+                           ->  Bitmap Heap Scan on albums  (cost=154.53..2685.40 rows=2179 width=492) (actual time=1.638..17.599 rows=4841 loops=1)
+                                 Recheck Cond: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date) AND (length(abstract) > 200))
+                                 Heap Blocks: exact=474
+                                 ->  Bitmap Index Scan on date_abstract  (cost=0.00..153.99 rows=2179 width=0) (actual time=1.496..1.499 rows=4841 loops=1)
+                                       Index Cond: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date) AND (length(abstract) > 200))
+                           ->  Hash  (cost=414.51..414.51 rows=44 width=16) (actual time=59.980..59.992 rows=62 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                 ->  Hash Join  (cost=10.66..414.51 rows=44 width=16) (actual time=0.340..59.831 rows=62 loops=1)
+                                       Hash Cond: (bands_genre.genre_id = genres.genre_id)
+                                       ->  Seq Scan on bands_genre  (cost=0.00..341.32 rows=23632 width=8) (actual time=0.076..30.948 rows=23632 loops=1)
+                                       ->  Hash  (cost=10.65..10.65 rows=1 width=16) (actual time=0.177..0.180 rows=1 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                             ->  Seq Scan on genres  (cost=0.00..10.65 rows=1 width=16) (actual time=0.029..0.156 rows=1 loops=1)
+                                                   Filter: ((genre_name)::text = 'Math rock'::text)
+                                                   Rows Removed by Filter: 531
+                     ->  Index Only Scan using bands_pkey on bands  (cost=0.29..0.31 rows=1 width=4) (actual time=0.018..0.018 rows=1 loops=14)
+                           Index Cond: (band_id = bands_genre.band_id)
+                           Heap Fetches: 0
+ Planning Time: 30.279 ms
+ Execution Time: 84.312 ms
+(30 rows)
+*/
+
+
+--- Create index sales_date_abstract
+
+CREATE INDEX sales_date_abstract ON albums USING btree (sales, release_date, length(abstract));
+
+/*
+                                                                                     QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=820.20..1557.64 rows=1 width=504) (actual time=207.642..207.668 rows=1 loops=1)
+   ->  Group  (cost=820.20..8194.68 rows=10 width=504) (actual time=207.637..207.659 rows=1 loops=1)
+         Group Key: albums.sales, albums.band_id, albums.release_date, albums.abstract, genres.genre_name
+         ->  Incremental Sort  (cost=820.20..8194.55 rows=10 width=504) (actual time=207.632..207.652 rows=1 loops=1)
+               Sort Key: albums.sales DESC, albums.band_id, albums.release_date, albums.abstract
+               Presorted Key: albums.sales
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 35kB  Peak Memory: 35kB
+               ->  Nested Loop  (cost=0.86..8194.10 rows=10 width=504) (actual time=120.790..207.585 rows=14 loops=1)
+                     Join Filter: (albums.band_id = bands.band_id)
+                     ->  Nested Loop  (cost=0.58..8190.58 rows=11 width=508) (actual time=120.738..207.255 rows=14 loops=1)
+                           Join Filter: (bands_genre.genre_id = genres.genre_id)
+                           Rows Removed by Join Filter: 14937
+                           ->  Nested Loop  (cost=0.58..8093.32 rows=5774 width=500) (actual time=0.147..110.933 rows=14951 loops=1)
+                                 ->  Index Scan Backward using sales_date_abstract on albums  (cost=0.29..7019.09 rows=2179 width=492) (actual time=0.105..19.112 rows=4841 loops=1)
+                                       Index Cond: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date) AND (length(abstract) > 200))
+                                 ->  Index Only Scan using bands_genre_pkey on bands_genre  (cost=0.29..0.46 rows=3 width=8) (actual time=0.004..0.008 rows=3 loops=4841)
+                                       Index Cond: (band_id = albums.band_id)
+                                       Heap Fetches: 0
+                           ->  Materialize  (cost=0.00..10.66 rows=1 width=16) (actual time=0.001..0.003 rows=1 loops=14951)
+                                 ->  Seq Scan on genres  (cost=0.00..10.65 rows=1 width=16) (actual time=0.029..0.110 rows=1 loops=1)
+                                       Filter: ((genre_name)::text = 'Math rock'::text)
+                                       Rows Removed by Filter: 531
+                     ->  Index Only Scan using bands_pkey on bands  (cost=0.29..0.31 rows=1 width=4) (actual time=0.018..0.018 rows=1 loops=14)
+                           Index Cond: (band_id = bands_genre.band_id)
+                           Heap Fetches: 0
+ Planning Time: 14.233 ms
+ Execution Time: 207.756 ms
+*/
+
+--- Create index sales_date
+
+CREATE INDEX sales_date ON albums USING btree (sales, release_date);
+
+/*
+                                                                                         QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1009.11..2216.25 rows=1 width=506) (actual time=176.687..183.905 rows=1 loops=1)
+   ->  Group  (cost=1009.11..13080.51 rows=10 width=506) (actual time=176.681..183.895 rows=1 loops=1)
+         Group Key: albums.sales, albums.band_id, albums.release_date, albums.abstract, genres.genre_name
+         ->  Nested Loop  (cost=1009.11..13080.39 rows=10 width=506) (actual time=176.677..183.889 rows=1 loops=1)
+               Join Filter: (albums.band_id = bands.band_id)
+               ->  Nested Loop  (cost=1008.82..13076.87 rows=11 width=510) (actual time=176.618..183.825 rows=1 loops=1)
+                     Join Filter: (bands_genre.genre_id = genres.genre_id)
+                     Rows Removed by Join Filter: 8146
+                     ->  Nested Loop  (cost=1008.82..12979.18 rows=5802 width=502) (actual time=38.756..136.871 rows=8147 loops=1)
+                           ->  Gather Merge  (cost=1008.54..11901.25 rows=2189 width=494) (actual time=37.287..59.038 rows=2629 loops=1)
+                                 Workers Planned: 1
+                                 Workers Launched: 1
+                                 ->  Incremental Sort  (cost=8.53..10654.98 rows=1288 width=494) (actual time=1.797..18.702 rows=1365 loops=2)
+                                       Sort Key: albums.sales DESC, albums.band_id, albums.release_date, albums.abstract
+                                       Presorted Key: albums.sales
+                                       Full-sort Groups: 23  Sort Method: quicksort  Average Memory: 69kB  Peak Memory: 69kB
+                                       Worker 0:  Full-sort Groups: 62  Sort Method: quicksort  Average Memory: 65kB  Peak Memory: 66kB
+                                       ->  Parallel Index Scan Backward using sales_date on albums  (cost=0.29..10597.02 rows=1288 width=494) (actual time=0.168..14.625 rows=1380 loops=2)
+                                             Index Cond: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date))
+                                             Filter: (length(abstract) > 200)
+                                             Rows Removed by Filter: 474
+                           ->  Index Only Scan using bands_genre_pkey on bands_genre  (cost=0.29..0.46 rows=3 width=8) (actual time=0.016..0.020 rows=3 loops=2629)
+                                 Index Cond: (band_id = albums.band_id)
+                                 Heap Fetches: 0
+                     ->  Materialize  (cost=0.00..10.66 rows=1 width=16) (actual time=0.001..0.002 rows=1 loops=8147)
+                           ->  Seq Scan on genres  (cost=0.00..10.65 rows=1 width=16) (actual time=0.031..0.128 rows=1 loops=1)
+                                 Filter: ((genre_name)::text = 'Math rock'::text)
+                                 Rows Removed by Filter: 531
+               ->  Index Only Scan using bands_pkey on bands  (cost=0.29..0.31 rows=1 width=4) (actual time=0.053..0.054 rows=1 loops=1)
+                     Index Cond: (band_id = bands_genre.band_id)
+                     Heap Fetches: 0
+ Planning Time: 10.715 ms
+ Execution Time: 184.374 ms
+(33 rows)
+*/
+
+
+
+/*
+_______________________________________________________________________________________________________________
+
+Query 2 - Update to 0 the sales from the album with the most sales in the first decade of the year 2000,
+          and which the running time is longer than 45 minutes. 
+_______________________________________________________________________________________________________________
+*/
+
+SELECT A.band_id, A.sales, A.release_date, A.running_time
+FROM albums AS A 
+    WHERE A.running_time >= '45'
+    AND A.release_date >= '2000/01/01'
+    AND A.release_date <= '2010/12/31'
+    GROUP BY  A.band_id,A.sales, A.release_date, A.running_time
+    ORDER BY A.sales
+    DESC
+    LIMIT 1;
+
+
+--- Query Plan without indexes
+
+EXPLAIN ANALYSE SELECT A.band_id, A.sales, A.release_date, A.running_time
+FROM albums AS A 
+    WHERE A.running_time >= '45'
+    AND A.release_date >= '2000/01/01'
+    AND A.release_date <= '2010/12/31'
+    GROUP BY  A.band_id,A.sales, A.release_date, A.running_time
+    ORDER BY A.sales
+    DESC
+    LIMIT 1;
+
+
+
+
+/*
+                                                                  QUERY PLAN
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3231.48..3231.48 rows=1 width=16) (actual time=105.643..105.653 rows=1 loops=1)
+   ->  Sort  (cost=3231.48..3247.17 rows=6276 width=16) (actual time=105.638..105.644 rows=1 loops=1)
+         Sort Key: sales DESC
+         Sort Method: top-N heapsort  Memory: 25kB
+         ->  HashAggregate  (cost=3137.34..3200.10 rows=6276 width=16) (actual time=82.943..94.541 rows=9291 loops=1)
+               Group Key: sales, band_id, release_date, running_time
+               Batches: 1  Memory Usage: 913kB
+               ->  Seq Scan on albums a  (cost=0.00..3051.54 rows=8580 width=16) (actual time=20.549..68.347 rows=9291 loops=1)
+                     Filter: ((running_time >= '45'::real) AND (release_date >= '2000-01-01'::date) AND (release_date <= '2010-12-31'::date))
+                     Rows Removed by Filter: 24797
+ Planning Time: 1.245 ms
+ Execution Time: 105.984 ms
+(12 rows)
+*/
+
+
+--- Create index date_time
+
+CREATE INDEX date_time ON albums USING btree (release_date, running_time);
+
+
+/*
+                                                                       QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3174.98..3174.98 rows=1 width=16) (actual time=77.725..77.743 rows=1 loops=1)
+   ->  Sort  (cost=3174.98..3190.67 rows=6276 width=16) (actual time=77.720..77.734 rows=1 loops=1)
+         Sort Key: sales DESC
+         Sort Method: top-N heapsort  Memory: 25kB
+         ->  HashAggregate  (cost=3080.84..3143.60 rows=6276 width=16) (actual time=55.033..66.601 rows=9291 loops=1)
+               Group Key: sales, band_id, release_date, running_time
+               Batches: 1  Memory Usage: 913kB
+               ->  Bitmap Heap Scan on albums a  (cost=389.89..2995.04 rows=8580 width=16) (actual time=2.566..39.731 rows=9291 loops=1)
+                     Recheck Cond: ((release_date >= '2000-01-01'::date) AND (release_date <= '2010-12-31'::date) AND (running_time >= '45'::real))
+                     Heap Blocks: exact=1124
+                     ->  Bitmap Index Scan on date_time  (cost=0.00..387.74 rows=8580 width=0) (actual time=2.334..2.341 rows=9291 loops=1)
+                           Index Cond: ((release_date >= '2000-01-01'::date) AND (release_date <= '2010-12-31'::date) AND (running_time >= '45'::real))
+ Planning Time: 12.970 ms
+ Execution Time: 78.358 ms
+(14 rows)
+*/
+
+
+--- Create index sales_time_date
+
+CREATE INDEX sales_time_date ON albums USING btree (sales,running_time,release_date);
+
+/*
+                                                                          QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=2.03..3.82 rows=1 width=16) (actual time=0.848..0.859 rows=1 loops=1)
+   ->  Group  (cost=2.03..11258.45 rows=6276 width=16) (actual time=0.842..0.850 rows=1 loops=1)
+         Group Key: sales, band_id, release_date, running_time
+         ->  Incremental Sort  (cost=2.03..11172.65 rows=8580 width=16) (actual time=0.839..0.844 rows=1 loops=1)
+               Sort Key: sales DESC, band_id, release_date, running_time
+               Presorted Key: sales
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+               ->  Index Scan Backward using sales_time_date on albums a  (cost=0.29..10862.49 rows=8580 width=16) (actual time=0.087..0.717 rows=36 loops=1)
+                     Index Cond: ((running_time >= '45'::real) AND (release_date >= '2000-01-01'::date) AND (release_date <= '2010-12-31'::date))
+ Planning Time: 13.946 ms
+ Execution Time: 1.019 ms
+(11 rows)
+*/
+
+
+/*__________________________________________________________________________________
+
+                                   CLUSTER ALBUMS TABLE
+  __________________________________________________________________________________
+
+-- Cluster albums table by release date
+
+CREATE INDEX date ON albums USING btree (release_date);
+
+CLUSTER albums USING date;
+ANALYZE albums;
+
+
+--- EXPLAIN ANALYSE QUERY 1 WITH the albums table clustered by release date
+
+/*
+                                                                        QUERY PLAN
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1126.69..1126.71 rows=1 width=506) (actual time=80.687..80.716 rows=1 loops=1)
+   ->  Group  (cost=1126.69..1127.02 rows=22 width=506) (actual time=80.682..80.708 rows=1 loops=1)
+         Group Key: albums.sales, albums.band_id, albums.release_date, albums.abstract, genres.genre_name
+         ->  Sort  (cost=1126.69..1126.75 rows=22 width=506) (actual time=80.677..80.701 rows=1 loops=1)
+               Sort Key: albums.sales DESC, albums.band_id, albums.release_date, albums.abstract
+               Sort Method: quicksort  Memory: 35kB
+               ->  Nested Loop  (cost=415.63..1126.20 rows=22 width=506) (actual time=58.888..80.652 rows=14 loops=1)
+                     Join Filter: (albums.band_id = bands.band_id)
+                     ->  Hash Join  (cost=415.35..1118.20 rows=25 width=510) (actual time=58.871..80.525 rows=14 loops=1)
+                           Hash Cond: (albums.band_id = bands_genre.band_id)
+                           ->  Index Scan using date on albums  (cost=0.29..684.44 rows=4924 width=494) (actual time=0.047..17.814 rows=4841 loops=1)
+                                 Index Cond: ((release_date >= '1990-01-01'::date) AND (release_date <= '1999-12-31'::date))
+                                 Filter: (length(abstract) > 200)
+                                 Rows Removed by Filter: 1717
+                           ->  Hash  (cost=414.51..414.51 rows=44 width=16) (actual time=56.719..56.731 rows=62 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                 ->  Hash Join  (cost=10.66..414.51 rows=44 width=16) (actual time=0.218..56.609 rows=62 loops=1)
+                                       Hash Cond: (bands_genre.genre_id = genres.genre_id)
+                                       ->  Seq Scan on bands_genre  (cost=0.00..341.32 rows=23632 width=8) (actual time=0.074..28.020 rows=23632 loops=1)
+                                       ->  Hash  (cost=10.65..10.65 rows=1 width=16) (actual time=0.086..0.090 rows=1 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                             ->  Seq Scan on genres  (cost=0.00..10.65 rows=1 width=16) (actual time=0.029..0.075 rows=1 loops=1)
+                                                   Filter: ((genre_name)::text = 'Math rock'::text)
+                                                   Rows Removed by Filter: 531
+                     ->  Index Only Scan using bands_pkey on bands  (cost=0.29..0.31 rows=1 width=4) (actual time=0.003..0.004 rows=1 loops=14)
+                           Index Cond: (band_id = bands_genre.band_id)
+                           Heap Fetches: 0
+ Planning Time: 1.158 ms
+ Execution Time: 80.790 ms
+(29 rows)
+ */
+
+
+--- EXPLAIN ANALYSE QUERY 2 WITH the albums table clustered by release date
+
+/*
+                                                                          QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=2.03..3.83 rows=1 width=16) (actual time=0.918..0.929 rows=1 loops=1)
+   ->  Group  (cost=2.03..11257.76 rows=6270 width=16) (actual time=0.912..0.920 rows=1 loops=1)
+         Group Key: sales, band_id, release_date, running_time
+         ->  Incremental Sort  (cost=2.03..11172.02 rows=8574 width=16) (actual time=0.909..0.914 rows=1 loops=1)
+               Sort Key: sales DESC, band_id, release_date, running_time
+               Presorted Key: sales
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+               ->  Index Scan Backward using sales_time_date on albums a  (cost=0.29..10862.08 rows=8574 width=16) (actual time=0.090..0.776 rows=36 loops=1)
+                     Index Cond: ((running_time >= '45'::real) AND (release_date >= '2000-01-01'::date) AND (release_date <= '2010-12-31'::date))
+ Planning Time: 7.104 ms
+ Execution Time: 1.089 ms
+(11 rows)
+*/
+
+/*
+___________________________________________________________________________________//
+
+--- Check that the statistics are empty
+
+SELECT relname,relpages,reltuples FROM pg_class WHERE relname='t';
+
+
+-- Statistics View
+
+CREATE OR REPLACE VIEW table_stats AS
+SELECT
+stat.relname AS relname,
+seq_scan, seq_tup_read, idx_scan, idx_tup_fetch,
+heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit
+FROM
+pg_stat_user_tables stat
+RIGHT JOIN pg_statio_user_tables statio
+ON stat.relid=statio.relid;
+
+
+--- List created indexes 
+
+SELECT
+    tablename,
+    indexname,
+    indexdef
+FROM
+    pg_indexes
+WHERE
+    schemaname = 'public'
+ORDER BY
+    tablename,
+    indexname;
+
+
+--- DROP CLUSTER
+
+ALTER TABLE albums SET WITHOUT CLUSTER;
+
+--- List created clusters  
+
+SELECT *
+FROM   pg_class c
+JOIN   pg_index i ON i.indrelid = c.oid
+WHERE  relkind = 'r' AND relhasindex AND i.indisclustered;
+
+______________________________________________________________________________//
+*/

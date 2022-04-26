@@ -1,0 +1,737 @@
+
+--- Optimization and Tunning - NoSQL MongoDB
+
+
+/* __________________________________________________________________________________________________________________________
+
+     Query 1 - Update to 1980/01/01 the release date of all albums for the genre Math rock, which were released in the 90’s
+     with an abstract over 200 characters, and that had most sales.   
+
+_____________________________________________________________________________________________________________________________
+*/
+
+--- Query Plan without indexes
+
+db.albums.find({
+           $and :
+				[
+				{genres: "Math rock"},
+			   	 {release_date: {$gte: ISODate("1990-01-01T00:00:00.000+00:00")}},
+			   	 {release_date: {$lte: ISODate("1999-12-31T00:00:00.000+00:00")}},
+			   	 {abstract: /^[\s\S]{200,}$/ }
+			   	 ]
+			}).sort({sales: -1}).limit(1).explain("executionStats")
+
+
+/*
+
+{genres: "Math rock", release_date: {$gte: ISODate("1990-01-01T00:00:00.000+00:00")},release_date: {$lte: ISODate("1999-12-31T00:00:00.000+00:00")},abstract: /^[\s\S]{200,}$/ }
+
+*/
+
+
+--- Output:
+
+/*
+Query Performance Summary
+	Documents Returned: 1
+	Index Keys Examined:0
+	Documents Examined: 34088
+	Actual Query Execution Time (ms): 27
+	Sorted in Memory: yes
+	No index available for this query.
+*/
+
+/*
+{
+ "stage": "SORT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 3,
+ "works": 34092,
+ "advanced": 1,
+ "needTime": 34090,
+ "needYield": 0,
+ "saveState": 34,
+ "restoreState": 34,
+ "isEOF": 1,
+ "sortPattern": {
+  "sales": -1
+ },
+ "memLimit": 33554432,
+ "limitAmount": 1,
+ "type": "simple",
+ "totalDataSizeSorted": 24526,
+ "usedDisk": false
+}
+*/
+
+/*
+{
+ "stage": "COLLSCAN",
+ "filter": {
+  "$and": [
+   {
+    "genres": {
+     "$eq": "Math rock"
+    }
+   },
+   {
+    "release_date": {
+     "$lte": "1999-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "abstract": {
+     "$regex": "^[\\s\\S]{200,}$"
+    }
+   }
+  ]
+ },
+ "nReturned": 22,
+ "executionTimeMillisEstimate": 3,
+ "works": 34090,
+ "advanced": 22,
+ "needTime": 34067,
+ "needYield": 0,
+ "saveState": 34,
+ "restoreState": 34,
+ "isEOF": 1,
+ "direction": "forward",
+ "docsExamined": 34088
+}
+*/
+
+/*
+{ queryPlanner: 
+   { plannerVersion: 1,
+     namespace: 'test.albums',
+     indexFilterSet: false,
+     parsedQuery: 
+      { '$and': 
+         [ { genres: { '$eq': 'Math rock' } },
+           { release_date: { '$lte': 1999-12-31T00:00:00.000Z } },
+           { release_date: { '$gte': 1990-01-01T00:00:00.000Z } },
+           { abstract: BSONRegExp("^[\\s\\S]{200,}$", "") } ] },
+     winningPlan: { stage: 'EOF' },
+     rejectedPlans: [] },
+  executionStats: 
+   { executionSuccess: true,
+     nReturned: 0,
+     executionTimeMillis: 0,
+     totalKeysExamined: 0,
+     totalDocsExamined: 0,
+     executionStages: 
+      { stage: 'EOF',
+        nReturned: 0,
+        executionTimeMillisEstimate: 0,
+        works: 1,
+        advanced: 0,
+        needTime: 0,
+        needYield: 0,
+        saveState: 0,
+        restoreState: 0,
+        isEOF: 1 } },
+  serverInfo: 
+   { host: 'bandscluster-shard-00-02.1eit9.mongodb.net',
+     port: 27017,
+     version: '4.4.10',
+     gitVersion: '58971da1ef93435a9f62bf4708a81713def6e88c' },
+  ok: 1,
+  '$clusterTime': 
+   { clusterTime: Timestamp({ t: 1638893065, i: 1 }),
+     signature: 
+      { hash: Binary(Buffer.from("b3d25691b040bfacdab4258e5d2263d5d2ab514b", "hex"), 0),
+        keyId: 6986443594676568000 } },
+  operationTime: Timestamp({ t: 1638893065, i: 1 }) }
+ */
+
+
+--- Create index sales
+
+db.albums.createIndex({"sales":-1}, name: "sales")
+
+--- Outputs:
+
+/*
+Query Performance Summary:
+	Documents Returned: 1
+	Index Keys Examined: 1928
+	Documents Examined: 1928
+	Actual Query Execution Time (ms): 19
+	Sorted in Memory: no
+	Query used the following index: sales
+*/
+
+/*
+{
+ "stage": "LIMIT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 7,
+ "works": 1929,
+ "advanced": 1,
+ "needTime": 1927,
+ "needYield": 0,
+ "saveState": 9,
+ "restoreState": 9,
+ "isEOF": 1,
+ "limitAmount": 1
+}
+*/
+
+/*
+{
+ "stage": "FETCH",
+ "filter": {
+  "$and": [
+   {
+    "genres": {
+     "$eq": "Math rock"
+    }
+   },
+   {
+    "release_date": {
+     "$lte": "1999-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "abstract": {
+     "$regex": "^[\\s\\S]{200,}$"
+    }
+   }
+  ]
+ },
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 2,
+ "works": 1928,
+ "advanced": 1,
+ "needTime": 1927,
+ "needYield": 0,
+ "saveState": 9,
+ "restoreState": 9,
+ "isEOF": 0,
+ "docsExamined": 1928,
+ "alreadyHasObj": 0
+}
+*/
+
+/*
+{
+ "stage": "IXSCAN",
+ "nReturned": 1928,
+ "executionTimeMillisEstimate": 0,
+ "works": 1928,
+ "advanced": 1928,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 9,
+ "restoreState": 9,
+ "isEOF": 0,
+ "keyPattern": {
+  "sales": -1
+ },
+ "indexName": "sales",
+ "isMultiKey": false,
+ "multiKeyPaths": {
+  "sales": []
+ },
+ "isUnique": false,
+ "isSparse": false,
+ "isPartial": false,
+ "indexVersion": 2,
+ "direction": "forward",
+ "indexBounds": {
+  "sales": [
+   "[MaxKey, MinKey]"
+  ]
+ },
+ "keysExamined": 1928,
+ "seeks": 1,
+ "dupsTested": 0,
+ "dupsDropped": 0
+}
+*/
+
+--- Create index sales_date_time
+
+db.albums.createIndex({"sales":-1}, {"release_date":1}, {"running_time":1}, name: "sales_date_time")
+
+
+--- Outputs:
+
+/*
+Query Performance Summary:
+	Documents Returned:1
+	Index Keys Examined:1926
+	Documents Examined:1926
+	Actual Query Execution Time (ms): 44
+	Sorted in Memory:no
+	Query used the following index: sales, release_date, running_time
+*/
+
+/*
+{
+ "stage": "LIMIT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 1,
+ "works": 1927,
+ "advanced": 1,
+ "needTime": 1925,
+ "needYield": 0,
+ "saveState": 13,
+ "restoreState": 13,
+ "isEOF": 1,
+ "limitAmount": 1
+}
+*/
+
+/*
+{
+ "stage": "FETCH",
+ "filter": {
+  "$and": [
+   {
+    "genres": {
+     "$eq": "Math rock"
+    }
+   },
+   {
+    "release_date": {
+     "$lte": "1999-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "abstract": {
+     "$regex": "^[\\s\\S]{200,}$"
+    }
+   }
+  ]
+ },
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 1,
+ "works": 1926,
+ "advanced": 1,
+ "needTime": 1925,
+ "needYield": 0,
+ "saveState": 13,
+ "restoreState": 13,
+ "isEOF": 0,
+ "docsExamined": 1926,
+ "alreadyHasObj": 0
+}
+*/
+
+/*
+{
+ "stage": "IXSCAN",
+ "nReturned": 1926,
+ "executionTimeMillisEstimate": 0,
+ "works": 1926,
+ "advanced": 1926,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 13,
+ "restoreState": 13,
+ "isEOF": 0,
+ "keyPattern": {
+  "sales": -1,
+  "release_date": 1,
+  "running_time": 1
+ },
+ "indexName": "sales_date_time",
+ "isMultiKey": false,
+ "multiKeyPaths": {
+  "sales": [],
+  "release_date": [],
+  "running_time": []
+ },
+ "isUnique": false,
+ "isSparse": false,
+ "isPartial": false,
+ "indexVersion": 2,
+ "direction": "forward",
+ "indexBounds": {
+  "sales": [
+   "[MaxKey, MinKey]"
+  ],
+  "release_date": [
+   "[MinKey, MaxKey]"
+  ],
+  "running_time": [
+   "[MinKey, MaxKey]"
+  ]
+ },
+ "keysExamined": 1926,
+ "seeks": 1,
+ "dupsTested": 0,
+ "dupsDropped": 0
+}
+*/
+
+--- Create index sales_date
+
+db.albums.createIndex({"sales":-1}, {"release_date":1}, name: "sales_date")
+
+/*
+Query Performance Summary:
+	Documents Returned: 1
+	Index Keys Examined: 1926
+	Documents Examined: 1926
+	Actual Query Execution Time (ms): 5
+	Sorted in Memory: no
+	Query used the following index: sales_date
+*/
+
+/*
+{
+ "stage": "LIMIT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 4,
+ "works": 1927,
+ "advanced": 1,
+ "needTime": 1925,
+ "needYield": 0,
+ "saveState": 1,
+ "restoreState": 1,
+ "isEOF": 1,
+ "limitAmount": 1
+}
+*/
+
+/*
+{
+ "stage": "FETCH",
+ "filter": {
+  "$and": [
+   {
+    "genres": {
+     "$eq": "Math rock"
+    }
+   },
+   {
+    "release_date": {
+     "$lte": "1999-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "abstract": {
+     "$regex": "^[\\s\\S]{200,}$"
+    }
+   }
+  ]
+ },
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 4,
+ "works": 1926,
+ "advanced": 1,
+ "needTime": 1925,
+ "needYield": 0,
+ "saveState": 1,
+ "restoreState": 1,
+ "isEOF": 0,
+ "docsExamined": 1926,
+ "alreadyHasObj": 0
+}
+*/
+
+/*
+{
+ "stage": "IXSCAN",
+ "nReturned": 1926,
+ "executionTimeMillisEstimate": 1,
+ "works": 1926,
+ "advanced": 1926,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 1,
+ "restoreState": 1,
+ "isEOF": 0,
+ "keyPattern": {
+  "sales": -1,
+  "release_date": 1
+ },
+ "indexName": "sales_date",
+ "isMultiKey": false,
+ "multiKeyPaths": {
+  "sales": [],
+  "release_date": []
+ },
+ "isUnique": false,
+ "isSparse": false,
+ "isPartial": false,
+ "indexVersion": 2,
+ "direction": "forward",
+ "indexBounds": {
+  "sales": [
+   "[MaxKey, MinKey]"
+  ],
+  "release_date": [
+   "[MinKey, MaxKey]"
+  ]
+ },
+ "keysExamined": 1926,
+ "seeks": 1,
+ "dupsTested": 0,
+ "dupsDropped": 0
+}
+*/
+
+
+ /*
+_______________________________________________________________________________________________________________
+
+Query 2 - Update to 0 the sales from the album with the most sales in the first decade of the year 2000,
+          and which the running time is longer than 45 minutes. 
+_______________________________________________________________________________________________________________
+*/
+
+--- Query Plan without indexes
+
+db.albums.find({
+           $and :
+				[
+			   	 {running_time: {$gte: 45}},
+			   	 {release_date: {$gte: ISODate("2000-01-01T00:00:00.000+00:00")}},
+			   	 {release_date: {$lte: ISODate("2010-12-31T00:00:00.000+00:00")}}	
+			   	]
+			}).sort({sales: -1}).limit(1).explain("executionStats")
+
+/*
+{running_time: {$gte: 45}, release_date: {$gte: ISODate("2000-01-01T00:00:00.000+00:00")}, release_date: {$lte: ISODate("2010-12-31T00:00:00.000+00:00")}}
+*/
+
+--- Outputs:
+
+/*
+Query Performance Summary:
+	Documents Returned: 1
+	Index Keys Examined: 0
+	Documents Examined: 34088
+	Actual Query Execution Time (ms): 28
+	Sorted in Memory: yes
+	No index available for this query.
+*/
+
+/*
+{
+ "stage": "SORT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 9,
+ "works": 34092,
+ "advanced": 1,
+ "needTime": 34090,
+ "needYield": 0,
+ "saveState": 34,
+ "restoreState": 34,
+ "isEOF": 1,
+ "sortPattern": {
+  "sales": -1
+ },
+ "memLimit": 33554432,
+ "limitAmount": 1,
+ "type": "simple",
+ "totalDataSizeSorted": 18924046,
+ "usedDisk": false
+}
+*/
+
+/*
+{
+ "stage": "COLLSCAN",
+ "filter": {
+  "$and": [
+   {
+    "release_date": {
+     "$lte": "2010-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "running_time": {
+     "$gte": 45
+    }
+   }
+  ]
+ },
+ "nReturned": 14628,
+ "executionTimeMillisEstimate": 8,
+ "works": 34090,
+ "advanced": 14628,
+ "needTime": 19461,
+ "needYield": 0,
+ "saveState": 34,
+ "restoreState": 34,
+ "isEOF": 1,
+ "direction": "forward",
+ "docsExamined": 34088
+}
+*/
+
+/*
+{ queryPlanner: 
+   { plannerVersion: 1,
+     namespace: 'test.albums',
+     indexFilterSet: false,
+     parsedQuery: 
+      { '$and': 
+         [ { release_date: { '$lte': 2010-12-31T00:00:00.000Z } },
+           { release_date: { '$gte': 2000-01-01T00:00:00.000Z } },
+           { running_time: { '$gte': 45 } } ] },
+     winningPlan: { stage: 'EOF' },
+     rejectedPlans: [] },
+  executionStats: 
+   { executionSuccess: true,
+     nReturned: 0,
+     executionTimeMillis: 0,
+     totalKeysExamined: 0,
+     totalDocsExamined: 0,
+     executionStages: 
+      { stage: 'EOF',
+        nReturned: 0,
+        executionTimeMillisEstimate: 0,
+        works: 1,
+        advanced: 0,
+        needTime: 0,
+        needYield: 0,
+        saveState: 0,
+        restoreState: 0,
+        isEOF: 1 } },
+  serverInfo: 
+   { host: 'bandscluster-shard-00-02.1eit9.mongodb.net',
+     port: 27017,
+     version: '4.4.10',
+     gitVersion: '58971da1ef93435a9f62bf4708a81713def6e88c' },
+  ok: 1,
+  '$clusterTime': 
+   { clusterTime: Timestamp({ t: 1638893189, i: 14 }),
+     signature: 
+      { hash: Binary(Buffer.from("7bb3fd18f1a7246cb6d63388506888c7570f861e", "hex"), 0),
+        keyId: 6986443594676568000 } },
+  operationTime: Timestamp({ t: 1638893189, i: 14 }) }
+ */
+
+
+--- Create Index sales_date_time
+
+db.albums.createIndex({"sales":-1}, {"release_date":1}, {"running_time":1}, name: "sales_date_time")
+
+
+--- Outputs:
+
+/*
+Query Performance Summary
+Documents Returned: 1
+Index Keys Examined: 1
+Documents Examined: 1
+Actual Query Execution Time (ms): 1
+Sorted in Memory: no
+Query used the following index: sales_date_time
+*/
+
+/*
+{
+ "stage": "LIMIT",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 1,
+ "works": 2,
+ "advanced": 1,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 0,
+ "restoreState": 0,
+ "isEOF": 1,
+ "limitAmount": 1
+}
+*/
+
+/*
+{
+ "stage": "FETCH",
+ "filter": {
+  "$and": [
+   {
+    "release_date": {
+     "$lte": "2010-12-31T00:00:00.000Z"
+    }
+   },
+   {
+    "running_time": {
+     "$gte": 45
+    }
+   }
+  ]
+ },
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 1,
+ "works": 1,
+ "advanced": 1,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 0,
+ "restoreState": 0,
+ "isEOF": 0,
+ "docsExamined": 1,
+ "alreadyHasObj": 0
+}
+*/
+
+/*
+{
+ "stage": "IXSCAN",
+ "nReturned": 1,
+ "executionTimeMillisEstimate": 1,
+ "works": 1,
+ "advanced": 1,
+ "needTime": 0,
+ "needYield": 0,
+ "saveState": 0,
+ "restoreState": 0,
+ "isEOF": 0,
+ "keyPattern": {
+  "sales": -1,
+  "release_date": 1,
+  "running_time": 1
+ },
+ "indexName": "sales_date_time",
+ "isMultiKey": false,
+ "multiKeyPaths": {
+  "sales": [],
+  "release_date": [],
+  "running_time": []
+ },
+ "isUnique": false,
+ "isSparse": false,
+ "isPartial": false,
+ "indexVersion": 2,
+ "direction": "forward",
+ "indexBounds": {
+  "sales": [
+   "[MaxKey, MinKey]"
+  ],
+  "release_date": [
+   "[MinKey, MaxKey]"
+  ],
+  "running_time": [
+   "[MinKey, MaxKey]"
+  ]
+ },
+ "keysExamined": 1,
+ "seeks": 1,
+ "dupsTested": 0,
+ "dupsDropped": 0
+}
+*/
+
+/*_______________________________________________________________________________________________//
+*/
+
+ --- List Indexes
+
+ db.albums.getIndexes() 
+
+ --- Drop Indexes
+
+ db.runCommand( { dropIndexes: "albums", index: "*" } )
+
+db.runCommand( { dropIndexes: "albums", index: "release_date_1" } )
+
+/*________________________________________________________________________________________________//
+*/
