@@ -1,0 +1,162 @@
+'''
+
+SQL Queries and Results
+
+- Using Posgresql command line on Linux
+
+@author: Joao Raimundo
+
+'''
+
+
+/* 
+
+Query 1 - Update to 1980/01/01 the release date of all albums for the genre Math rock, which were released in the 90’s
+     with an abstract over 200 characters, and that had most sales.                
+*/
+
+
+/* Query (1) before Update _______________________________________________________________________________________________________________________*/
+
+SELECT albums.band_id, albums.release_date, albums.sales, genres.genre_name, albums.abstract
+FROM (((albums 
+INNER JOIN bands ON albums.band_id = bands.band_id)
+INNER JOIN bands_genre ON bands.band_id = bands_genre.band_id)
+INNER JOIN genres ON bands_genre.genre_id = genres.genre_id)
+        WHERE genres.genre_name = 'Math rock'
+        AND albums.release_date >= '1990/01/01'
+        AND albums.release_date <= '1999/12/31'
+        AND LENGTH(albums.abstract) > 200
+        GROUP BY albums.band_id, albums.release_date, albums.abstract, albums.sales, genres.genre_name
+        ORDER BY albums.sales
+        DESC
+        LIMIT 1;
+
+/*
+    
+    | band_id | release_date | sales |   genres   |                                        abstract                                     |  
+    + --------+--------------+-------+------------+-------------------------------------------------------------------------------------+
+    |    6171 | 1994-10-24   |  9779 | Math rock  | At Action Park is the first full-length record by Shellac, released in 1994.        |
+    |         |              |       |            | The title is unrelated to the infamous New Jersey theme park, Action Park,          | 
+    |         |              |       |            | which closed in 1996 due to numerous fatalities. The drummer,                       |
+    |         |              |       |            | Todd Trainer, came up with the title of the fictional park because it sounded cool. | 
+
+
+ 
+
+/* Query Update (1) _____________________________________________________________________________________________________________________________*/
+
+
+UPDATE albums
+SET release_date = '1980/01/01'
+WHERE albums.release_date = (SELECT albums.release_date
+FROM (((albums 
+INNER JOIN bands ON albums.band_id = bands.band_id)
+INNER JOIN bands_genre ON bands.band_id = bands_genre.band_id)
+INNER JOIN genres ON bands_genre.genre_id = genres.genre_id)
+        WHERE genres.genre_name = 'Math rock'
+        AND albums.release_date >= '1990/01/01'
+        AND albums.release_date <= '1999/12/31'
+        AND LENGTH(albums.abstract) > 200
+        ORDER BY albums.sales 
+        DESC
+        LIMIT 1
+ );
+
+
+/* Query (1) after Update: ____________________________________________________________________________________________________________*/
+
+SELECT albums.band_id, albums.release_date, albums.sales, genres.genre_name, albums.abstract
+FROM (((albums 
+INNER JOIN bands ON albums.band_id = bands.band_id)
+INNER JOIN bands_genre ON bands.band_id = bands_genre.band_id)
+INNER JOIN genres ON bands_genre.genre_id = genres.genre_id)
+        WHERE genres.genre_name = 'Math rock'
+        AND albums.band_id = '6171'
+        AND albums.release_date = '1980/01/01'
+        AND LENGTH(albums.abstract) > 200
+        GROUP BY albums.band_id, albums.release_date, albums.abstract, albums.sales, genres.genre_name
+        ORDER BY albums.sales 
+        DESC
+        LIMIT 1;
+
+
+/*
+    | band_id | release_date | sales | genre_name |                                     abstract                                         |
+    +--------_+--------------+-------+------------+--------------------------------------------------------------------------------------+
+    |    6171 | 1980-01-01   |  9779 | Math rock  | At Action Park is the first full-length record by Shellac, released in 1994.         |
+    |         |              |       |            | The title is unrelated to the infamous New Jersey theme park, Action Park,           |
+    |         |              |       |            | which closed in 1996 due to numerous fatalities. The drummer,                        |
+    |         |              |       |            | Todd Trainer, came up with the title of the fictional park because it sounded cool.  |
+
+*/
+
+
+/*______________________________________________________________________________________________________________________________________________//
+
+
+Query 2 - Update to 0 the sales from the album with the most sales in the first decade of the year 2000,
+    and which the running time is longer than 45 minutes. 
+*/
+
+
+/* Query (2) before Update __________________________________________________________*/
+
+
+SELECT A.band_id, A.sales, A.release_date, A.running_time
+FROM albums AS A 
+    WHERE A.running_time >= '45'
+    AND A.release_date >= '2000/01/01'
+    AND A.release_date <= '2010/12/31'
+    GROUP BY  A.band_id,A.sales, A.release_date, A.running_time
+    ORDER BY A.sales
+    DESC
+    LIMIT 1;
+
+/*
+
+    | band_id |  sales   | release_date | running_time |
+    +---------+----------+--------------+--------------+
+    |   1664  | 5100000  | 2002-06-25   |    46.1      |
+
+
+*/
+
+
+/* Query (2) Update __________________________________________________________*/
+
+UPDATE albums
+SET sales = 0
+WHERE albums.sales = (SELECT A.sales
+                      FROM albums AS A
+                      WHERE A.running_time > '45'
+                      AND A.release_date >= '2000/01/01'
+                      AND A.release_date <= '2010/12/31'
+                      ORDER BY A.sales 
+                      DESC
+                      LIMIT 1
+);
+
+
+
+
+/* Query (2) after Update ____________________________________________________*/
+
+SELECT A.band_id, A.sales, A.release_date, A.running_time
+FROM albums AS A 
+    WHERE A.band_id = '1664'
+    AND A.running_time >= '45'
+    AND A.release_date >= '2000/01/01'
+    AND A.release_date <= '2010/12/31'
+    GROUP BY  A.band_id,A.sales, A.release_date, A.running_time
+    LIMIT 1;
+
+/*
+
+    | band_id | sales | release_date | running_time |
+    +---------+-------+--------------+--------------+
+    |    1664 |     0 | 2002-06-25   |         46.1 |
+
+*/
+
+/* ______________________________________________________________________________________________/

@@ -1,0 +1,107 @@
+/* ## Creating SQL Tables and Populating the Database ____________________//*/
+
+-- @author: João Raimundo
+-- last review: 09/10/2021
+
+
+/* # CREATE_TABLES_________________SQL_SCRIPT______________/*/
+
+CREATE TABLE bands (
+		band_id	SERIAL,
+		band_url VARCHAR(150) NOT NULL,
+		band_name VARCHAR(70) NOT NULL,
+	PRIMARY KEY(band_id),
+	UNIQUE(band_url)
+);
+
+CREATE TABLE albums (
+		album_id SERIAL,
+		band_id INTEGER,
+		album_name VARCHAR NOT NULL,
+		sales INTEGER,
+		running_time FLOAT(8) NOT NULL,
+		release_date DATE NOT NULL,
+		abstract TEXT,
+	PRIMARY KEY(album_id),
+	FOREIGN KEY(band_id) REFERENCES bands
+);
+
+CREATE TABLE members (
+		member_id SERIAL,
+		artist_url VARCHAR NOT NULL,
+	PRIMARY KEY(member_id),
+	UNIQUE (artist_url)
+);
+
+
+CREATE TABLE bands_members (
+		band_id INTEGER,
+		member_id INTEGER,
+		is_active BOOLEAN NOT NULL,
+	PRIMARY KEY(band_id,member_id,is_active),
+	FOREIGN KEY(band_id) REFERENCES bands,
+	FOREIGN KEY(member_id) REFERENCES members
+);
+
+
+CREATE TABLE bands_members (
+		band_id INTEGER,
+		member_id INTEGER,
+		is_active BOOLEAN NOT NULL,
+	PRIMARY KEY(band_id,member_id,is_active),
+	FOREIGN KEY(band_id) REFERENCES bands,
+	FOREIGN KEY(member_id) REFERENCES members
+);
+
+
+CREATE TABLE artistic_names (
+		name_id SERIAL,
+		member_id INTEGER,
+		artistic_name VARCHAR(70) NOT NULL,
+	PRIMARY KEY(name_id),
+	FOREIGN KEY(member_id) REFERENCES members
+);
+
+CREATE TABLE genres (
+		genre_id SERIAL,
+		genre_name VARCHAR(70) NOT NULL,
+	PRIMARY KEY(genre_id)
+);
+
+CREATE TABLE bands_genre (
+		band_id INTEGER,
+		genre_id INTEGER,
+	PRIMARY KEY(band_id,genre_id),
+	FOREIGN KEY (band_id) REFERENCES bands,
+	FOREIGN KEY (genre_id) REFERENCES genres
+);
+
+
+
+/* # Populate Database______________________SQL_COMMANDS______________________________/*/
+
+-- Populate bands table
+COPY "bands" FROM '~/bands_data/bands.csv' DELIMITER E'\t' CSV HEADER;
+
+-- Populate genres table
+COPY "genres" FROM '~/bands_data/genres.csv' DELIMITER E'\t' CSV HEADER;
+
+-- Populate bands_genre table
+COPY "bands_genre" FROM '~/bands_data/bands_genre.csv' DELIMITER E'\t' CSV HEADER; 
+
+-- Populate bands_genre table
+COPY "bands_genre" FROM '~/bands_data/bands_genre.csv' DELIMITER E'\t' CSV HEADER; 
+
+-- Populate albums table
+COPY "albums" FROM '~/bands_data/albums.csv' DELIMITER E'\t' CSV HEADER; 
+
+-- Populate members table
+COPY "members" FROM '~/bands_data/members.csv' DELIMITER E'\t' CSV HEADER; 
+
+-- Populate bands_members table
+COPY "bands_members" FROM '~/bands_data/bands_members.csv' DELIMITER E'\t' CSV HEADER; 
+
+-- Populate artistic_names table
+COPY "artistic_names" FROM '~/bands_data/artistic_names.csv' DELIMITER E'\t' CSV HEADER; 
+
+/*____________________________________________________________________________________________//*/

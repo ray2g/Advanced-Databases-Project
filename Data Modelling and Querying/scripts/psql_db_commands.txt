@@ -1,0 +1,229 @@
+### Postgresql Installation and DB Configuration_______________________________________________///
+
+# @author: João Raimundo
+# last review: 10/10/2021
+
+
+## Postgresql Installation Steps ___________________________________________________________//
+
+# Create the file repository configuration:
+$ sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt \
+(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+# Import the repository signing key:
+$ wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+# Update the package lists:
+$ sudo apt-get update
+
+# Install the latest version of PostgreSQL.
+$ sudo apt-get -y install postgresql
+
+
+
+## Postgresql Configuration _______________________________________________________________//
+
+$ service postgresql status
+13/main (port 5432): down
+
+$ sudo service postgresql start
+ * Starting PostgreSQL 13 database server
+
+$ service postgresql status
+13/main (port 5432): online
+
+$ sudo su postgres
+
+## list databases
+postgres-# \l 
+                              List of databases
+   Name    |  Owner   | Encoding | Collate |  Ctype  |   Access privileges
+-----------+----------+----------+---------+---------+-----------------------
+ postgres  | postgres | UTF8     | C.UTF-8 | C.UTF-8 |
+ template0 | postgres | UTF8     | C.UTF-8 | C.UTF-8 | =c/postgres          +
+           |          |          |         |         | postgres=CTc/postgres
+ template1 | postgres | UTF8     | C.UTF-8 | C.UTF-8 | =c/postgres          +
+           |          |          |         |         | postgres=CTc/postgres
+(3 rows)
+
+#__________________________________________________________________________________________/
+
+# list users
+postgres-# \du 
+                                   List of roles
+ Role name |                         Attributes                         | Member of
+-----------+------------------------------------------------------------+-----------
+ postgres  | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+
+#__________________________________________________________________________________________/
+
+
+# Create new user with SUPERUSER role
+
+postgres=# CREATE USER admin_bands WITH PASSWORD 'bands123';
+CREATE ROLE
+
+postgres=# \du
+                                    List of roles
+  Role name  |                         Attributes                         | Member of
+-------------+------------------------------------------------------------+-----------
+ admin_bands |                                                            | {}
+ postgres    | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+
+postgres=# ALTER USER admin_bands WITH SUPERUSER;
+ALTER ROLE
+
+postgres=# \du
+                                    List of roles
+  Role name  |                         Attributes                         | Member of
+-------------+------------------------------------------------------------+-----------
+ admin_bands | Superuser                                                  | {}
+ postgres    | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+
+
+
+
+## Configure Bands Database ________________________________________________________________///
+
+# Create database bands_db
+
+postgres=# CREATE DATABASE bands_db WITH OWNER admin_bands;
+CREATE DATABASE
+
+postgres=# \l
+                               List of databases
+   Name    |    Owner    | Encoding | Collate |  Ctype  |   Access privileges
+-----------+-------------+----------+---------+---------+-----------------------
+ bands_db  | admin_bands | UTF8     | C.UTF-8 | C.UTF-8 |
+ postgres  | postgres    | UTF8     | C.UTF-8 | C.UTF-8 |
+ template0 | postgres    | UTF8     | C.UTF-8 | C.UTF-8 | =c/postgres          +
+           |             |          |         |         | postgres=CTc/postgres
+ template1 | postgres    | UTF8     | C.UTF-8 | C.UTF-8 | =c/postgres          +
+           |             |          |         |         | postgres=CTc/postgres
+(4 rows)
+
+
+# Access bands_db database as admin_bands user___________________________________________//
+
+$ psql -h localhost -p 5432 -d bands_db -U admin_bands
+
+
+## Creating the tables _______________________________________________//
+
+# bands table_____________________________________________/
+
+bands_db=# CREATE TABLE bands(
+bands_db(# band_id SERIAL,
+bands_db(# band_url VARCHAR(150) NOT NULL,
+bands_db(# band_name VARCHAR(70) NOT NULL,
+bands_db(# PRIMARY KEY(band_id),
+bands_db(# UNIQUE(band_url));
+CREATE TABLE
+
+# albums table___________________________________________/
+
+bands_db=# CREATE TABLE albums (
+bands_db(# album_id SERIAL,
+bands_db(# band_id INTEGER,
+bands_db(# album_name VARCHAR(100) NOT NULL,
+bands_db(# sales INTEGER,
+bands_db(# running_time FLOAT(8) NOT NULL,
+bands_db(# release_date DATE NOT NULL,
+bands_db(# abstract TEXT,
+bands_db(# PRIMARY KEY(album_id),
+bands_db(# FOREIGN KEY(band_id) REFERENCES bands
+bands_db(# );
+CREATE TABLE
+
+# members table___________________________________________/
+
+bands_db=# CREATE TABLE members (
+bands_db(# member_id SERIAL,
+bands_db(# artist_url VARCHAR(150) NOT NULL,
+bands_db(# PRIMARY KEY(member_id),
+bands_db(# UNIQUE (artist_url)
+bands_db(# );
+CREATE TABLE
+
+# bands_members table___________________________________________/
+
+bands_db=# CREATE TABLE bands_members (
+band_id INTEGER,
+member_id INTEGER,
+is_active BOOLEAN NOT NULL,
+PRIMARY KEY(band_id,member_id),
+FOREIGN KEY(band_id) REFERENCES bands,
+FOREIGN KEY(member_id) REFERENCES members
+);
+CREATE TABLE
+
+# artistic_names table___________________________________________/
+
+bands_db=# CREATE TABLE artistic_names (
+bands_db(# name_id SERIAL,
+bands_db(# member_id INTEGER,
+bands_db(# artistic_name VARCHAR(70) NOT NULL,
+bands_db(# PRIMARY KEY(name_id),
+bands_db(# FOREIGN KEY(member_id) REFERENCES members
+bands_db(# );
+CREATE TABLE
+
+# genres table___________________________________________/
+
+bands_db=# CREATE TABLE genres (
+bands_db(# genre_id SERIAL,
+bands_db(# genre_name VARCHAR(70) NOT NULL,
+bands_db(# PRIMARY KEY(genre_id)
+bands_db(# );
+CREATE TABLE
+
+# bands_genre table___________________________________________/
+
+bands_db=# CREATE TABLE bands_genre (
+bands_db(# band_id INTEGER,
+bands_db(# genre_id INTEGER,
+bands_db(# PRIMARY KEY(band_id,genre_id),
+bands_db(# FOREIGN KEY (band_id) REFERENCES bands,
+bands_db(# FOREIGN KEY (genre_id) REFERENCES genres
+bands_db(# );
+CREATE TABLE
+
+# list tables _________________________________________________________//
+
+bands_db=# \dt
+               List of relations
+ Schema |      Name      | Type  |    Owner
+--------+----------------+-------+-------------
+ public | albums         | table | admin_bands
+ public | artistic_names | table | admin_bands
+ public | bands          | table | admin_bands
+ public | bands_genre    | table | admin_bands
+ public | bands_members  | table | admin_bands
+ public | genres         | table | admin_bands
+ public | members        | table | admin_bands
+(7 rows)
+
+bands_db=# \dt+
+                                   List of relations
+ Schema |      Name      | Type  |    Owner    | Persistence |    Size    | Description
+--------+----------------+-------+-------------+-------------+------------+-------------
+ public | albums         | table | admin_bands | permanent   | 8192 bytes |
+ public | artistic_names | table | admin_bands | permanent   | 0 bytes    |
+ public | bands          | table | admin_bands | permanent   | 0 bytes    |
+ public | bands_genre    | table | admin_bands | permanent   | 0 bytes    |
+ public | bands_members  | table | admin_bands | permanent   | 0 bytes    |
+ public | genres         | table | admin_bands | permanent   | 0 bytes    |
+ public | members        | table | admin_bands | permanent   | 0 bytes    |
+(7 rows)
+
+
+#__________________________ADDITIONAL_SCRIPT_______________________________________//
+
+# Remove non UTF8 characteres______/
+
+$ iconv -c -t utf8 ~/bands_data/albums.csv > ~/bands_data/albums_processed_utf8.csv
+
+$ rm ~/bands_data/albums.csv
+$ mv ~/bands_data/albums_processed_utf8.csv > ~/bands_data/albumns.csv
+
+#____________________________________________________________________________________/

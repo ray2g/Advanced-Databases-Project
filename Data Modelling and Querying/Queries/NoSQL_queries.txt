@@ -1,0 +1,218 @@
+'''
+
+NoSQL Queries and Results
+
+- Using DBMS MongoDB - GUI MongoDB Compass - Cloud Server MongoDB Atlas Cluster
+
+@ Joao Raimundo
+
+'''
+
+$ use bandsDB bandsDB
+
+
+## Query 1 - Update to 1980/01/01 the release date of all albums for the genre Math rock, 
+#            which were released in the 90’s with an abstract over 200 characters, and that had most sales.
+
+
+# Quering (1) before updating data____________________________________________________________/
+
+db.albums.find({
+           $and :
+				[
+				{genres: "Math rock"},
+			   	 {release_date: {$gte: ISODate("1990-01-01T00:00:00.000+00:00")}},
+			   	 {release_date: {$lte: ISODate("1999-12-31T00:00:00.000+00:00")}},
+			   	 {abstract: /^[\s\S]{200,}$/ }
+			   	 ]
+			}).sort({sales: -1}).limit(1)
+
+'''
+{ _id: ObjectId("6168bd6e416ed4db14e46417"),
+  band_url: 'http://dbpedia.org/resource/Shellac_(band)',
+  album_name: 'At Action Park',
+  sales: 9779,
+  running_time: 37.05,
+  release_date: 1994-10-24T00:00:00.000Z,
+  abstract: 'At Action Park is the first full-length record by Shellac, released in 1994. 
+            The title is unrelated to the infamous New Jersey theme park, Action Park, 
+            which closed in 1996 due to numerous fatalities. The drummer, Todd Trainer, 
+            came up with the title of the fictional park because it sounded cool.',
+  bands: 'Shellac (band)',
+  genres: [ 'Noise rock', 'Math rock', 'Post-hardcore' ],
+  artists: 
+   [ { artist_url: 'http://dbpedia.org/resource/Todd_Trainer',
+       artistic_name: [ 'Todd Trainer' ],
+       is_active: 'True' },
+     { artist_url: 'http://dbpedia.org/resource/Bob_Weston',
+       artistic_name: [ 'Bob Weston' ],
+       is_active: 'True' },
+     { artist_url: 'http://dbpedia.org/resource/Steve_Albini',
+       artistic_name: [ 'Steve Albini' ],
+       is_active: 'True' } ] }
+'''
+
+
+# Query (1) Update __________________________________________________________________________/
+
+> db.albums.updateOne({_id: ObjectId("6168bd6e416ed4db14e46417")},
+				{$set: {release_date: ISODate("1980-01-01T00:00:00.000+00:00")}}
+				)
+
+ < { acknowledged: true,
+     insertedId: null,
+     matchedCount: 1,
+     modifiedCount: 1,
+     upsertedCount: 0 }
+
+
+# Query (1) after update ___________________________________________________________________/
+
+db.albums.find({_id: ObjectId("6168bd6e416ed4db14e46417")})
+
+
+'''
+{ _id: ObjectId("6168bd6e416ed4db14e46417"),
+  band_url: 'http://dbpedia.org/resource/Shellac_(band)',
+  album_name: 'At Action Park',
+  sales: 9779,
+  running_time: 37.05,
+  release_date: 1980-01-01T00:00:00.000Z,
+  abstract: 'At Action Park is the first full-length record by Shellac,
+             released in 1994. The title is unrelated to the infamous
+             New Jersey theme park, Action Park, which closed in 1996 due
+             to numerous fatalities. The drummer, Todd Trainer, came up with
+             the title of the fictional park because it sounded cool.',
+  bands: 'Shellac (band)',
+  genres: [ 'Noise rock', 'Math rock', 'Post-hardcore' ],
+  artists: 
+   [ { artist_url: 'http://dbpedia.org/resource/Todd_Trainer',
+       artistic_name: [ 'Todd Trainer' ],
+       is_active: 'True' },
+     { artist_url: 'http://dbpedia.org/resource/Bob_Weston',
+       artistic_name: [ 'Bob Weston' ],
+       is_active: 'True' },
+     { artist_url: 'http://dbpedia.org/resource/Steve_Albini',
+       artistic_name: [ 'Steve Albini' ],
+       is_active: 'True' } ] }
+'''
+
+
+# ____________________________________________________________________________________________//
+
+## Query 2 - Update to 0 the sales from the album with the most sales in the first 
+#			 decade of the year 2000,and which the running time is longer than 45 minutes. 
+
+
+# Quering (2) before updating data
+
+db.albums.find({
+           $and :
+				[
+			   	 {running_time: {$gte: 45}},
+			   	 {release_date: {$gte: ISODate("2000-01-01T00:00:00.000+00:00")}},
+			   	 {release_date: {$lte: ISODate("2010-12-31T00:00:00.000+00:00")}}	
+			   	]
+			}).sort({sales: -1}).limit(1)
+
+
+{ _id: ObjectId("6168b8f6416ed4db14e40d38"),
+  band_url: 'http://dbpedia.org/resource/The_Beatles',
+  album_name: '1 (Beatles album)',
+  sales: 12410000,
+  running_time: 79.13333333,
+  release_date: 2000-11-13T00:00:00.000Z,
+  abstract: '1 is a compilation album by English rock band the Beatles, originally 
+	    released on 13 November 2000. The album features virtually every number-one
+            single the band achieved in the United Kingdom and United States from 1962 to 1970. 
+            Issued on the 30th anniversary of the band\'s break-up, it was their first compilation
+            available on only one compact disc. 1 was a commercial success and topped the charts worldwide.
+            It has sold over 31 million copies. In addition, 1 is the fourth best-selling album in the US
+            since Nielsen SoundScan began tracking US album sales in January 1991 and the best-selling album
+            of the decade (2000 to 2009) in the US, as well as the best-selling album of the decade worldwide. 
+            1 was remastered and reissued in September 2011, and was remixed and reissued again in several
+            different deluxe editions in November 2015, the most comprehensive of which is a three-disc set
+            entitled 1+, which includes video discs of the band\'s music videos. As of June 2015, 1 is the
+            sixth best-selling album of the 21st century in the UK, having sold over 3.1 million copies.',
+  bands: 'The Beatles',
+  genres: [ 'Pop music', 'Rock music' ],
+  artists: 
+   [ { artist_url: 'http://dbpedia.org/resource/George_Harrison',
+       artistic_name: [ 'George Harrison' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/John_Lennon',
+       artistic_name: [ 'John Lennon' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Ringo_Starr',
+       artistic_name: [ 'Ringo Starr' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Paul_McCartney',
+       artistic_name: [ 'Paul McCartney' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Paul_McCartney',
+       artistic_name: [ 'Sir Paul McCartney' ],
+       is_active: 'False' } ] }
+'''
+
+ # Query (2) Update ________________________________________________________________/
+
+
+> db.albums.updateOne({_id: ObjectId("6168b8f6416ed4db14e40d38")},
+				{$set: {sales: 0 }}
+				)
+
+< { acknowledged: true,
+    insertedId: null,
+    matchedCount: 1,
+    modifiedCount: 1,
+    upsertedCount: 0 }
+
+# Query (2) after update ___________________________________________________________________/
+
+db.albums.find({_id: ObjectId("6168b8f6416ed4db14e40d38")})
+
+{ _id: ObjectId("6168b8f6416ed4db14e40d38"),
+  band_url: 'http://dbpedia.org/resource/The_Beatles',
+  album_name: '1 (Beatles album)',
+  sales: 0,
+  running_time: 79.13333333,
+  release_date: 2000-11-13T00:00:00.000Z,
+  abstract: '1 is a compilation album by English rock band the Beatles,
+  			 originally released on 13 November 2000. The album features 
+  			 virtually every number-one single the band achieved in the
+  			 United Kingdom and United States from 1962 to 1970. 
+  			 Issued on the 30th anniversary of the band\'s break-up, it was
+  			 their first compilation available on only one compact disc.
+  			 1 was a commercial success and topped the charts worldwide.
+  			 It has sold over 31 million copies. In addition, 1 is the fourth
+  			 best-selling album in the US since Nielsen SoundScan began tracking
+  			 US album sales in January 1991 and the best-selling album of the
+  			 decade (2000 to 2009) in the US, as well as the best-selling album
+  			 of the decade worldwide. 1 was remastered and reissued in September 2011,
+  			 and was remixed and reissued again in several different deluxe editions
+  			 in November 2015, the most comprehensive of which is a three-disc set
+  			 entitled 1+, which includes video discs of the band\'s music videos.
+  			 As of June 2015, 1 is the sixth best-selling album of the 21st century
+  			 in the UK, having sold over 3.1 million copies.',
+  bands: 'The Beatles',
+  genres: [ 'Pop music', 'Rock music' ],
+  artists: 
+   [ { artist_url: 'http://dbpedia.org/resource/George_Harrison',
+       artistic_name: [ 'George Harrison' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/John_Lennon',
+       artistic_name: [ 'John Lennon' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Ringo_Starr',
+       artistic_name: [ 'Ringo Starr' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Paul_McCartney',
+       artistic_name: [ 'Paul McCartney' ],
+       is_active: 'False' },
+     { artist_url: 'http://dbpedia.org/resource/Paul_McCartney',
+       artistic_name: [ 'Sir Paul McCartney' ],
+       is_active: 'False' } ] }
+
+#_______________________________________________________________________________________________________//
+
+
