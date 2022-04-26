@@ -50,13 +50,13 @@ The data for the project consists of 5 csv files extracted from dbpedia.
 ### Tasks:
 
   1. Write the specifications for two fairly complex data operations that are able to showcase the differences between relational and NoSQL databases
-    * Example: Insert a new album called "Best Of" for a band that released their first album in the 70s who sold the most albums in the 90s.
-    * This is a complex operation because it includes multiple queries, includes write and read operations, and includes heavy queries (sort by, group by, range queries).
-    * The two operations must create possible conflicts when run at the same time, e.g. they read/write the same piece of data
+    *  Example: Insert a new album called "Best Of" for a band that released their first album in the 70s who sold the most albums in the 90s.
+    *  This is a complex operation because it includes multiple queries, includes write and read operations, and includes heavy queries (sort by, group by, range queries).
+    *  The two operations must create possible conflicts when run at the same time, e.g. they read/write the same piece of data
   2. Define the relational schema:
-    * You can draw an Entity-Relationship model
-    * You can draw a a Relational Diagram
-    * You MUST write the CREATE TABLES statements
+    *  You can draw an Entity-Relationship model
+    *  You can draw a a Relational Diagram
+    *  You MUST write the CREATE TABLES statements
   3. Build a relational database in Postgres to store your data and implement the operations designed in 1.
   4. Build a NoSQL database in the system selected in 1 to store your data and implement the operations designed in 1.
 
