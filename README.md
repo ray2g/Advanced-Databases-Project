@@ -19,19 +19,19 @@ Oriented by:
 # Project Definition
 This project part aims at comparing a relational database and a NoSQL database in terms of data modelling, querying, transactions and optimizations.
 
-## Infrastructure:
+### Infrastructure:
 
   * **Relational Database:** PostgreSQL
 
   * **NoSQL:** MongoDB
 
-## Data:
+### Data:
 
 The data for the project consists of 5 csv files extracted from dbpedia.
   * www.dbpedia.org
   * http://dbpedia.org/page/Radiohead
 
-## Files:
+### Files:
 
   * band-band_name.csv: Contains 10k music band dbpedia URIs, and band names
 
@@ -47,7 +47,7 @@ The data for the project consists of 5 csv files extracted from dbpedia.
 
 # Part 1: Data Modelling and Querying
 
-## Tasks:
+### Tasks:
 
   1. Write the specifications for two fairly complex data operations that are able to showcase the differences between relational and NoSQL databases
     * Example: Insert a new album called "Best Of" for a band that released their first album in the 70s who sold the most albums in the 90s.
