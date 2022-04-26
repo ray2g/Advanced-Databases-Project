@@ -45,7 +45,7 @@ The data for the project consists of 5 csv files extracted from dbpedia.
 
 <br>
 
-# Part 1: Data Modelling and Querying
+# Part 1: Data Modelling and Querying:
 
 ### Tasks:
 
@@ -78,7 +78,7 @@ This part of the project focuses on the Relational Database and reliability of t
     - Using the operations designed in part 1, implement each of them as part of a single procedure with at least two separate queries.
     - Implement simple WRITE queries that change the data read by the complex operations to support your concurrency experiments.
    
-  2. Concurrency anomalies experiments
+  2. Concurrency anomalies experiments:
   
     - Identify the types of concurrency anomalies that concurrent execution of your operations could result in
     - Demonstrate concurrency issues by changing isolation levels in Postgres and using the sleep function inside the procedure
