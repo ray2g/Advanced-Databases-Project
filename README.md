@@ -57,9 +57,9 @@ The data for the project consists of 5 csv files extracted from dbpedia.
     
   2. Define the relational schema:
   
-    *  You can draw an Entity-Relationship model
-    *  You can draw a a Relational Diagram
-    *  You MUST write the CREATE TABLES statements
+   * You can draw an Entity-Relationship model
+   * You can draw a a Relational Diagram
+   * You MUST write the CREATE TABLES statements
     
   3. Build a relational database in Postgres to store your data and implement the operations designed in 1.
   
@@ -73,16 +73,16 @@ This part of the project focuses on the Relational Database and reliability of t
 
   1. Implement your complex operations in PL/pgSQL:
   
-    * Using the operations designed in part 1, implement each of them as part of a single procedure with at least two separate queries.
-    * Implement simple WRITE queries that change the data read by the complex operations to support your concurrency experiments.
+   * Using the operations designed in part 1, implement each of them as part of a single procedure with at least two separate queries.
+   * Implement simple WRITE queries that change the data read by the complex operations to support your concurrency experiments.
    
   2. Concurrency anomalies experiments
   
-    * Identify the types of concurrency anomalies that concurrent execution of your operations could result in
-    * Demonstrate concurrency issues by:
+   * Identify the types of concurrency anomalies that concurrent execution of your operations could result in
+   * Demonstrate concurrency issues by:
     
-      - changing isolation levels in Postgres
-      - using the sleep function inside the procedure
+     - changing isolation levels in Postgres
+     - using the sleep function inside the procedure
       
   3. Solve the concurrency anomalies using locks inside your procedures
   
